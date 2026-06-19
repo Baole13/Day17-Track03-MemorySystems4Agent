@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
 
 
 @dataclass
@@ -25,8 +26,23 @@ class ProviderConfig:
 
 def normalize_provider(value: str) -> str:
     """Student TODO: map aliases like `anthorpic` -> `anthropic`."""
-
-    raise NotImplementedError
+    normalized = value.strip().lower().replace("-", "").replace("_", "")
+    aliases = {
+        "openai": "openai",
+        "custom": "custom",
+        "gemini": "gemini",
+        "google": "gemini",
+        "googlegenai": "gemini",
+        "anthropic": "anthropic",
+        "anthorpic": "anthropic",
+        "claude": "anthropic",
+        "ollama": "ollama",
+        "openrouter": "openrouter",
+        "router": "openrouter",
+    }
+    if normalized not in aliases:
+        raise ValueError(f"Unsupported provider: {value}")
+    return aliases[normalized]
 
 
 def build_chat_model(config: ProviderConfig):
@@ -40,5 +56,61 @@ def build_chat_model(config: ProviderConfig):
     - `ollama` -> `ChatOllama`
     - `openrouter` -> `ChatOpenRouter`
     """
+    provider = normalize_provider(config.provider)
 
-    raise NotImplementedError
+    if provider == "openai":
+        chat_cls = getattr(import_module("langchain_openai"), "ChatOpenAI")
+        return chat_cls(
+            model=config.model_name,
+            temperature=config.temperature,
+            api_key=config.api_key,
+        )
+
+    if provider == "custom":
+        chat_cls = getattr(import_module("langchain_openai"), "ChatOpenAI")
+        return chat_cls(
+            model=config.model_name,
+            temperature=config.temperature,
+            api_key=config.api_key,
+            base_url=config.base_url,
+        )
+
+    if provider == "gemini":
+        chat_cls = getattr(import_module("langchain_google_genai"), "ChatGoogleGenerativeAI")
+        return chat_cls(
+            model=config.model_name,
+            temperature=config.temperature,
+            google_api_key=config.api_key,
+        )
+
+    if provider == "anthropic":
+        chat_cls = getattr(import_module("langchain_anthropic"), "ChatAnthropic")
+        return chat_cls(
+            model=config.model_name,
+            temperature=config.temperature,
+            api_key=config.api_key,
+        )
+
+    if provider == "ollama":
+        chat_cls = getattr(import_module("langchain_ollama"), "ChatOllama")
+        kwargs = {
+            "model": config.model_name,
+            "temperature": config.temperature,
+        }
+        if config.base_url:
+            kwargs["base_url"] = config.base_url
+        return chat_cls(**kwargs)
+
+    if provider == "openrouter":
+        chat_cls = getattr(import_module("langchain_openrouter"), "ChatOpenRouter")
+        kwargs = {
+            "model": config.model_name,
+            "temperature": config.temperature,
+        }
+        if config.api_key:
+            kwargs["api_key"] = config.api_key
+        if config.base_url:
+            kwargs["base_url"] = config.base_url
+        return chat_cls(**kwargs)
+
+    raise ValueError(f"Unsupported provider: {config.provider}")

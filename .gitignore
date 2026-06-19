@@ -6,3 +6,10 @@ __pycache__/
 *.pyc
 .DS_Store
 state/
+.venv
+/.venv
+/.test_tmp
+.test_tmp
+.pytest_tmp
+pytest.ini
+
